@@ -28,6 +28,21 @@ git submodule update --init --recursive  # Required after clone
 
 Build requires Android SDK 35, NDK 25, CMake 3.22.1, `extra-cmake-modules`, and GNU Gettext (`msgfmt`). On Windows: Developer Mode + Git symlinks enabled.
 
+> **⚠️ 验证基线（ADR-0001）**：当前开发机（Windows）**没有** Java / Android SDK / CMake，上述 gradle 命令**本地不可执行**。唯一可信验证 = GitHub Actions PR CI（`pull_request.yml`：`:app:assembleDebug` + `:assembleDebugPlugins` 四平台矩阵）。流程：push 到 `spec/<feature-id>` 分支 → 开 PR → 轮询 `GET /repos/tubbodeTang/LapFeet/commits/<sha>/check-runs`（脚本：`FirstLanding/.agents/skills/sdd-implement/scripts/ci_status.sh`）。CI 未全绿禁止标记任务完成。
+
+## SDD Workflow
+
+所有研发工作走规格驱动流程（详见 `FirstLanding/sdd/README.md`），四个 skill + 四个人工门禁：
+
+1. `/skill:sdd-spec` → `specs/<id>/spec.md`（含验收标准）→ **门禁 G1 人工确认**
+2. `/skill:sdd-plan` → `plan.md` + `tasks.md`（实质选型须立 ADR 于 `decisions/`）→ **门禁 G2 人工确认**
+3. `/skill:sdd-implement` → 逐任务实现，每任务过 CI 才标完成 → **门禁 G3 人工确认 CI 与 diff**
+4. `/skill:sdd-review` → 对照验收标准逐条核对，更新 AGENTS.md / CODE_WIKI.md，飞书归档 → **门禁 G4 最终验收**
+
+- feature id：`YYYYMMDD-短横线名称`；模板在 `specs/_TEMPLATE/`
+- 分支 `spec/<id>`，commit `[<id>] task-N: 简述`；合入 main 永远由人工执行
+- 飞书集成（文档归档 / 任务同步 / 特性跟踪表）token 记录在 `FirstLanding/sdd/feishu.json`
+
 ## Architecture
 
 | Layer | Module | Role |
@@ -114,5 +129,6 @@ Events flow: C++ callbacks → `native-lib.cpp` JNI → `Fcitx.handleFcitxEvent(
 6. 先翻项目里已有的依赖能做什么，再考虑加新包或自己写。别上来就假设库里没有。
 7. 架构决策往长了做。不接受"先这样以后再换"的临时方案。
 8. 先看成熟产品怎么解决同一个问题，用已验证的模式，别从零发明。
+9. 一切研发走 SDD 流程（见 SDD Workflow 节）：无 spec 不动手，无 CI 绿不宣称完成，实质技术选型必须留 ADR。
 
 
