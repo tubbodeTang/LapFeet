@@ -62,7 +62,11 @@
   - 涉及文件: `app/src/test/java/org/fcitx/fcitx5/android/input/candidates/HardwareModTapTest.kt`、
     `.github/workflows/pull_request.yml`
   - 验证: CI 全绿（含新单测步骤）
-  - 结果:
+  - 结果: 代码已推（含单测 + CI 单测腿）。
+    基础设施修正（本分支内附带提交，非本特性逻辑）：`android-actions/setup-android@v3` 在
+    Node 24 强迁下崩溃（上游 TapFeet 同挂，四平台全挂，非本特性引入），升到 `@v4`（v4.0.4，
+    2026-09 发布）。另：token 纸面推送对 `.github/workflows/` 需 token 的 Workflows 写权限
+    （已开通），故 workflow 改动也走 API 推送，未用 Web UI。
 
 - [ ] T5: [真机] 全量 AC 验收（Titan2 / tt2 预设）
   - 内容: 按 spec AC1~AC10 逐条真机验证（改配置后强停应用；逐条记录 通过/不通过）。
