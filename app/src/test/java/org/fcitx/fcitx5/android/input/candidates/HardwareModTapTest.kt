@@ -19,7 +19,7 @@ import org.junit.Test
  * "does this modifier family even have chords" half) and the modifier-family
  * mapping. Prefs-backed wrappers (`isDualRoleBareKey`, `hasChordBindingForModifier`)
  * are exercised on-device; the logic core under test here is
- * [HardwareShortcutResolver.chordBindingForFamily].
+ * [ChordFamily.bindingForFamily].
  */
 class HardwareModTapTest {
 
@@ -40,7 +40,7 @@ class HardwareModTapTest {
     fun chordBindingOfFamilyIsConflict() {
         // Alt_R has a chord binding (Alt_R+e) -> Mod-Tap may arm on the Alt_R dual-role key.
         assertTrue(
-            HardwareShortcutResolver.chordBindingForFamily(
+            ChordFamily.bindingForFamily(
                 HardwareChord.ALT_R,
                 listOf(chord(HardwareChord.ALT_R, symE))
             )
@@ -51,7 +51,7 @@ class HardwareModTapTest {
     fun chordOfDifferentFamilyIsNoConflict() {
         // The dual-role key is Alt_R; a Shift_L+e chord does not make Alt_R arm.
         assertFalse(
-            HardwareShortcutResolver.chordBindingForFamily(
+            ChordFamily.bindingForFamily(
                 HardwareChord.ALT_R,
                 listOf(chord(HardwareChord.SHIFT_L, symE))
             )
@@ -62,7 +62,7 @@ class HardwareModTapTest {
     fun nonChordActionBindingIsNoConflict() {
         // A plain action binding (no modifier) can never be a chord half.
         assertFalse(
-            HardwareShortcutResolver.chordBindingForFamily(
+            ChordFamily.bindingForFamily(
                 HardwareChord.ALT_R,
                 listOf(binding(symE))
             )
@@ -74,13 +74,13 @@ class HardwareModTapTest {
         // Sym/Fn chords are governed by the existing tap-hold path, not Mod-Tap:
         // they must NOT arm an Alt/Shift dual-role key.
         assertFalse(
-            HardwareShortcutResolver.chordBindingForFamily(
+            ChordFamily.bindingForFamily(
                 HardwareChord.ALT_R,
                 listOf(chord(HardwareChord.SYM, symE), chord(HardwareChord.FN, symQ))
             )
         )
         assertTrue(
-            HardwareShortcutResolver.chordBindingForFamily(
+            ChordFamily.bindingForFamily(
                 HardwareChord.SYM,
                 listOf(chord(HardwareChord.SYM, symE))
             )
@@ -89,7 +89,7 @@ class HardwareModTapTest {
 
     @Test
     fun emptyBindingsAreNoConflict() {
-        assertFalse(HardwareShortcutResolver.chordBindingForFamily(HardwareChord.ALT_R, emptyList()))
+        assertFalse(ChordFamily.bindingForFamily(HardwareChord.ALT_R, emptyList()))
     }
 
     // ---------------------------------------------------------------- family mapping
@@ -98,23 +98,23 @@ class HardwareModTapTest {
     fun modifierFamilyMapping() {
         assertEquals(
             HardwareChord.ALT_R,
-            HardwareShortcutResolver.chordModifierFamilyForKeyCode(KeyEvent.KEYCODE_ALT_RIGHT)
+            ChordFamily.modifierFamilyForKeyCode(KeyEvent.KEYCODE_ALT_RIGHT)
         )
         assertEquals(
             HardwareChord.ALT_L,
-            HardwareShortcutResolver.chordModifierFamilyForKeyCode(KeyEvent.KEYCODE_ALT_LEFT)
+            ChordFamily.modifierFamilyForKeyCode(KeyEvent.KEYCODE_ALT_LEFT)
         )
         assertEquals(
             HardwareChord.SHIFT_L,
-            HardwareShortcutResolver.chordModifierFamilyForKeyCode(KeyEvent.KEYCODE_SHIFT_LEFT)
+            ChordFamily.modifierFamilyForKeyCode(KeyEvent.KEYCODE_SHIFT_LEFT)
         )
         assertEquals(
             HardwareChord.SHIFT_R,
-            HardwareShortcutResolver.chordModifierFamilyForKeyCode(KeyEvent.KEYCODE_SHIFT_RIGHT)
+            ChordFamily.modifierFamilyForKeyCode(KeyEvent.KEYCODE_SHIFT_RIGHT)
         )
         // Letters and the CapsLock key have no chord family here (pseudo modifiers
         // Fn/Sym are handled by the tap-hold path; CapsLock has no chord role).
-        assertNull(HardwareShortcutResolver.chordModifierFamilyForKeyCode(KeyEvent.KEYCODE_E))
-        assertNull(HardwareShortcutResolver.chordModifierFamilyForKeyCode(KeyEvent.KEYCODE_CAPS_LOCK))
+        assertNull(ChordFamily.modifierFamilyForKeyCode(KeyEvent.KEYCODE_E))
+        assertNull(ChordFamily.modifierFamilyForKeyCode(KeyEvent.KEYCODE_CAPS_LOCK))
     }
 }

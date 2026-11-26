@@ -68,12 +68,17 @@ jobs:
       - name: Unit tests (ubuntu leg)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
-          ./gradlew :app:testDebugUnitTest
+          if ! ./gradlew :app:testDebugUnitTest > utest.log 2>&1; then
+            tail -n 80 utest.log | while IFS= read -r l; do echo "::error file=utest.log::$l"; done
+            exit 1
+          fi
 
       - name: Build APK (validation)
         run: |
-          ./gradlew :app:assembleDebug
-          ./gradlew :assembleDebugPlugins
+          if ! ( ./gradlew :app:assembleDebug && ./gradlew :assembleDebugPlugins ) > build.log 2>&1; then
+            tail -n 80 build.log | while IFS= read -r l; do echo "::error file=build.log::$l"; done
+            exit 1
+          fi
 
       - name: Upload app
         uses: actions/upload-artifact@v6

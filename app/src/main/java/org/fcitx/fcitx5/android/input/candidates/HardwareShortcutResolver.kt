@@ -169,13 +169,8 @@ object HardwareShortcutResolver {
         matchesBareCandidateKey(kp) && isLockTriggerKey(kp)
 
     /** 物理修饰键 keyCode → 和弦修饰键家族名（[HardwareChord] const）。非修饰键返回 null。 */
-    fun chordModifierFamilyForKeyCode(keyCode: Int): String? = when (keyCode) {
-        KeyEvent.KEYCODE_ALT_LEFT -> HardwareChord.ALT_L
-        KeyEvent.KEYCODE_ALT_RIGHT -> HardwareChord.ALT_R
-        KeyEvent.KEYCODE_SHIFT_LEFT -> HardwareChord.SHIFT_L
-        KeyEvent.KEYCODE_SHIFT_RIGHT -> HardwareChord.SHIFT_R
-        else -> null
-    }
+    fun chordModifierFamilyForKeyCode(keyCode: Int): String? =
+        ChordFamily.modifierFamilyForKeyCode(keyCode)
 
     /**
      * [family] 修饰键家族下是否存在任意和弦绑定（`family+字母` 的动作快捷键）。
@@ -189,12 +184,12 @@ object HardwareShortcutResolver {
     fun hasChordBindingForModifier(family: String): Boolean =
         chordBindingForFamily(family, actionParsedKeys().map { it.second })
 
-    /** 纯函数核心（单测直达）：[actionBindings] 里是否存在 [family] 家族的和弦绑定。JVM 可测。 */
+    /** 纯函数核心（单测直达 [ChordFamily.bindingForFamily]）：[actionBindings] 里是否存在 [family] 家族的和弦绑定。 */
     internal fun chordBindingForFamily(
         family: String,
         actionBindings: List<ParsedKey>,
     ): Boolean =
-        actionBindings.any { (it as? ParsedKey.Chord)?.modifier == family }
+        ChordFamily.bindingForFamily(family, actionBindings)
 
     /**
      * Whether [kp] is the configured Alt-latch trigger key (setting:

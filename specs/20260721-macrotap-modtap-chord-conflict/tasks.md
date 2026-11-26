@@ -68,6 +68,12 @@
     2026-09 发布）；`gradle/actions/setup-gradle@v5` 新增的 wrapper 校验会报
     `build-logic/gradle/wrapper/gradle-wrapper.jar`（上游遗留的占位文本文件，上游同 blob）
     为未知 jar，故该步骤设 `validate-wrappers: false`（根 wrapper 才实际参与构建）。
+    单测修复（又 1 轮 CI）：`HardwareShortcutResolver` 是 Kotlin object，JVM 上首次触碰
+    任一成员会触发其 `<clinit>`（AppPrefs.getInstance()，Android-only）而崩，故两个纯
+    函数移入独立纯 object `ChordFamily`（新文件 `input/candidates/ChordFamily.kt`，T1 范围
+    内的等价重排），resolver 保留同名委托（T3 调用点不变），测试改打 ChordFamily。
+    另：CI 的 gradle 步骤加了失败时 `::error` 尾 80 行标注（细粒度 token 拉不了原始日志，
+    标注能经 API 读到）。
     另：token 纸面推送对 `.github/workflows/` 需 token 的 Workflows 写权限
     （已开通），故 workflow 改动也走 API 推送，未用 Web UI。
 
