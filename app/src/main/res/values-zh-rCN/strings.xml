@@ -72,6 +72,8 @@
     <string name="caps_lock_enabled">大写锁定已开启</string>
     <string name="caps_lock_disabled">大写锁定已关闭</string>
     <string name="hw_alt_latch_key">Alt 锁定键（双击）</string>
+    <string name="hw_mod_tap">双角色键 Mod-Tap</string>
+    <string name="hw_mod_tap_summary">候选可见时，同时「选候选」与「组键位」的键（如 Alt）按下后先挂起：松手=选候选，按住再按字母=和弦。关闭=恢复旧的立即选候选行为。</string>
     <string name="hw_alt_delete_line">Alt + Del 删除整行</string>
     <string name="hw_alt_delete_line_summary">Alt + Del / 退格删除整行。</string>
     <string name="hw_long_press_symbol">长按按键输入符号</string>

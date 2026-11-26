@@ -4,10 +4,12 @@
  */
 package org.fcitx.fcitx5.android.input.candidates
 
+import android.view.KeyEvent
 import org.fcitx.fcitx5.android.core.Key
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.prefs.HardwareChord
 import org.fcitx.fcitx5.android.data.prefs.HardwareSpecialKeys
+import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
 import org.fcitx.fcitx5.android.input.bar.ui.CandidateUi
 import org.fcitx.fcitx5.android.input.candidates.horizontal.CandidateArrangementMode
 import org.fcitx.fcitx5.android.input.shortcut.ShortcutAction
@@ -126,6 +128,73 @@ object HardwareShortcutResolver {
      */
     fun isHardwareShortcutKey(kp: KeyPress): Boolean =
         shortcutParsedKeys().any { matchesParsedKey(kp, it) }
+
+    // ------------------------------------------------------------------ dual-role (Mod-Tap) queries
+    // ADR-0005: 双角色键（裸按=选候选、与修饰键和=和弦）的判定。全部是纯谓词，只读偏好缓存，
+    // 不碰任何按住状态（那是 KeyPress 快照的事）。
+
+    /** 绑定的键是不是"纯键"（无修饰键位）。和弦绑定对裸按永不匹配（修饰键关不过），天然排除。 */
+    private fun isBareKeyMatch(kp: KeyPress, pref: ManagedPreference<String>): Boolean {
+        val parsed = parseKeyString(pref.getValue()) ?: return false
+        if (parsed is ParsedKey.Ref && parsed.key.states != 0) return false
+        return matchesKeySymOnly(kp, parsed)
+    }
+
+    /**
+     * [kp] 裸按是否命中任一候选位绑定（candidate1~5，纯键绑定）。
+     */
+    fun matchesBareCandidateKey(kp: KeyPress): Boolean {
+        val hw = hardwareKeyboardPrefs
+        return listOf(hw.candidate1Key, hw.candidate2Key, hw.candidate3Key,
+            hw.candidate4Key, hw.candidate5Key
+        ).any { isBareKeyMatch(kp, it) }
+    }
+
+    /**
+     * 是否"锁定触发键"：Alt-latch 配置键（[matchesLatchKey]，与派发链同一套 keysym-only 语义），
+     * 或参与 Caps-latch 双击/长按锁定的两个 Shift（与 [HardwareKeyDispatch.isCapsLatchKeyCode]
+     * 同一硬编码集合）。物理 CapsLock 键故意不在此列：它没有和弦修饰键家族，无法构成
+     * "裸按=候选、按住=和弦"的双角色冲突（绑到候选位时保持既有行为）。
+     */
+    fun isLockTriggerKey(kp: KeyPress): Boolean =
+        matchesLatchKey(kp) ||
+            kp.keyCode == KeyEvent.KEYCODE_SHIFT_LEFT ||
+            kp.keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT
+
+    /**
+     * 双角色裸键判定（ADR-0005）：[kp] 裸按同时命中 ① 某个候选位绑定（纯键） 且 ② 锁定触发键。
+     * 例：Alt_R 同时是 candidate5 + altLatchKey；Shift_L 同时是 candidate4 + Caps-latch 双击键。
+     */
+    fun isDualRoleBareKey(kp: KeyPress): Boolean =
+        matchesBareCandidateKey(kp) && isLockTriggerKey(kp)
+
+    /** 物理修饰键 keyCode → 和弦修饰键家族名（[HardwareChord] const）。非修饰键返回 null。 */
+    fun chordModifierFamilyForKeyCode(keyCode: Int): String? = when (keyCode) {
+        KeyEvent.KEYCODE_ALT_LEFT -> HardwareChord.ALT_L
+        KeyEvent.KEYCODE_ALT_RIGHT -> HardwareChord.ALT_R
+        KeyEvent.KEYCODE_SHIFT_LEFT -> HardwareChord.SHIFT_L
+        KeyEvent.KEYCODE_SHIFT_RIGHT -> HardwareChord.SHIFT_R
+        else -> null
+    }
+
+    /**
+     * [family] 修饰键家族下是否存在任意和弦绑定（`family+字母` 的动作快捷键）。
+     * 存在时该家族的双角色键裸按才会挂起（Mod-Tap）；不存在则永不挂起，
+     * 行为与旧版逐字节相同（零面变更）。
+     *
+     * 刻意不按"字母是否也是候选键"收窄：旧行为下双角色键裸按**总是**先选候选、再让和弦
+     * 照发 —— 对任何和弦意图来说候选选择都是多余副作用，挂起-补发对全部和弦都是净收益，
+     * 而对无和弦意图的裸按，补发重放的正是旧行为本身。
+     */
+    fun hasChordBindingForModifier(family: String): Boolean =
+        chordBindingForFamily(family, actionParsedKeys().map { it.second })
+
+    /** 纯函数核心（单测直达）：[actionBindings] 里是否存在 [family] 家族的和弦绑定。JVM 可测。 */
+    internal fun chordBindingForFamily(
+        family: String,
+        actionBindings: List<ParsedKey>,
+    ): Boolean =
+        actionBindings.any { (it as? ParsedKey.Chord)?.modifier == family }
 
     /**
      * Whether [kp] is the configured Alt-latch trigger key (setting:

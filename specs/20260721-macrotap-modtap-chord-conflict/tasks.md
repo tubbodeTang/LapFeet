@@ -9,62 +9,67 @@
 
 分支：`spec/20260721-macrotap-modtap-chord-conflict`
 
-- [ ] T1: Resolver 新增双角色判定纯函数
-  - 内容: `HardwareShortcutResolver` 加 `isDualRoleBareKey(kp)`（candidate1-5 /
-    pageNext / pagePrev 的裸按绑定命中 ∩ `HardwareChord.isChordModifierKeyCode`，
-    复用既有解析与缓存）与 `isBoundChordSecondKey(kp)`（`resolveAction` ∪
-    `resolvePaging` 命中）。可选：若 `app/src/test` 基建可用，补纯函数单测
-    （CI workflow 目前不跑 test，属加固非门禁）。
+> **实现期设计修正（相对 plan，已同步 ADR-0005 讨论）**
+> 1. ~~T3 抽取 `dispatchTapReplay`~~：取消。补发复用**既有** tap-hold 释放路径
+>    （`CandidatesView.handleChordTapRelease` → 候选面不接才 `handleHardwareSymKey`），
+>    与 `HardwareChord.consumeSymbolTap` 同构，无需新抽取（更小改动面，ADR-0005 决策3 的精神保留：
+>    重放不重入完整 onKeyDown）。
+> 2. 双角色判定改为 `isDualRoleBareKey = 裸候选绑定 ∩ 锁定触发键`（Alt-latch 配置键 ∪ 两个 Shift；
+>    物理 CapsLock 无和弦家族，不纳入）。plan 原文引用的 `HardwareChord.isChordModifierKeyCode`
+>    在代码中不存在，属计划期笔误。
+> 3. 挂起门槛 = 五条件（开关/物理模式/候选可见/双角色裸键/**该修饰键家族存在任意和弦绑定**）。
+>    不按"和弦字母是否也是候选键"收窄：旧行为下双角色键裸按总是先选候选、和弦照发，
+>    对任何和弦意图候选选择都是多余副作用；对无和弦意图的裸按，补发重放的正是旧行为本身。
+> 4. 第二键裁决简化为**无条件补发**（任意第二键 down → 立即补发候选选择，第二键走完整原路径），
+>    plan §2.3 的"和弦第二键/非和弦"两分支殊途同归，合并。
+> 5. CI 增加 ubuntu 腿 `:app:testDebugUnitTest`（原先 CI 不跑单测，测试文件连编译都无人验证）。
+
+- [~] T1: Resolver 新增双角色判定纯函数
+  - 内容: `HardwareShortcutResolver` 新增：`matchesBareCandidateKey(kp)`（candidate1-5 纯键绑定命中）、
+    `isLockTriggerKey(kp)`（altLatchKey 配置键 ∪ Shift_L/R）、`isDualRoleBareKey(kp)`（两者交集）、
+    `chordModifierFamilyForKeyCode(keyCode)`（物理修饰键→和弦家族名）、
+    `hasChordBindingForModifier(family)` + 纯函数核心 `chordBindingForFamily(family, bindings)`
+    （该家族是否存在和弦绑定，JVM 可测）。
   - 涉及文件: `app/src/main/java/org/fcitx/fcitx5/android/input/candidates/HardwareShortcutResolver.kt`
   - 验证: CI 全绿（4 平台矩阵）
   - 结果:
 
-- [ ] T2: 设置项「和弦键轻点挂起（Mod-Tap）」
-  - 内容: `AppPrefs.HardwareKeyboard` 加 `modTapEnabled: PBool`（默认 true）；
-    「物理键盘」页（`HardwareKeyboardSettingsFragment`）加
-    `SwitchPreferenceCompat` 一行；strings.xml 加标题 + 摘要两条文案。
+- [~] T2: 设置项「双角色键 Mod-Tap」
+  - 内容: `AppPrefs.HardwareKeyboard` 加 `modTapEnabled`（托管 `switch()`，默认 true，
+    自动注册到「物理键盘」页，无需改 Fragment）；strings.xml（en + zh-rCN）加标题+摘要。
   - 涉及文件: `app/src/main/java/org/fcitx/fcitx5/android/data/prefs/AppPrefs.kt`、
-    `app/src/main/java/org/fcitx/fcitx5/android/ui/main/settings/behavior/HardwareKeyboardSettingsFragment.kt`、
-    `app/src/main/res/values/strings.xml`
-  - 验证: CI 全绿 + [真机] 打开「设置→物理键盘」能看到新开关、默认勾选、可切换
+    `app/src/main/res/values/strings.xml`、`app/src/main/res/values-zh-rCN/strings.xml`
+  - 验证: CI 全绿 + [真机] 「设置→物理键盘」能看到新开关、默认勾选、可切换
   - 结果:
 
-- [ ] T3: 纯重构——抽取 `dispatchTapReplay`（行为不变）
-  - 内容: 把 `FcitxInputMethodService.onKeyDown` 中「picker 选择 → 动作快捷键 →
-    物理分支候选/符号面 → forwardKeyEvent」段（现约 1996-2056 行）原样抽成
-    `private fun dispatchTapReplay(keyCode: Int, effectiveEvent: KeyEvent,
-    allowTapHold: Boolean = true): Boolean`；原调用点以 `allowTapHold=true` 调用。
-    **本任务禁止改变任何行为**（移动代码，不改逻辑）。
-  - 涉及文件: `app/src/main/java/org/fcitx/fcitx5/android/input/FcitxInputMethodService.kt`
-  - 验证: CI 全绿 + [真机] 冒烟：打字出候选、选字、翻页、Sym 切符号窗、
-    `Sym+O` 翻页、动作快捷键，均与改动前一致
-  - 结果:
-
-- [ ] T4: 挂起-裁决-重放主逻辑
-  - 内容: 按计划 §2.2/§2.3 实现：
-    1. `pendingModTap: Pair<Int, KeyEvent>?` 状态字段 + 会话收尾清理（与
-       `HardwareChord.reset()` 同点）；
-    2. keyDown 挂起点（`dispatchTapReplay` 内、`handleHardwareChordTapHold` 之后）：
-       五条件全满足（物理模式/repeat0/开关开/候选显示中/`isDualRoleBareKey`）且
-       非 caps 接管键（`capsLockEnabled && isCapsLatchKeyCode`）→ 存 pending、
-       记 `consumedHardwareCandidateShortcutKeys`、return true；有旧 pending 先重放；
-    3. 第二键裁决（onKeyDown 早期、latch 状态机之后、动作快捷键之前）：
-       pending 存在时——和弦第二键（`isBoundChordSecondKey`）→ 作废 pending；
-       非和弦 → 立即重放 pending 再继续；
-    4. keyUp 重放：pending 键抬起 → `dispatchTapReplay(saved, allowTapHold=false)`；
-    5. Alt-latch 消费点（双击第二击 / 解锁击）同步作废 pending。
+- [~] T3: 挂起-补发主逻辑（Service）
+  - 内容: `FcitxInputMethodService`：
+    1. `modTapPendingEvent: KeyEvent?` 状态 + `onFinishInput` 清理（与 `HardwareChord.reset()` 同点）；
+    2. `modTapShouldArm`（五条件门槛）；
+    3. onKeyDown 挂起点：动作快捷键**之前**——有旧 pending 先补发再放行；满足门槛 → 存 pending、
+       记 `consumedHardwareCandidateShortcutKeys`、return true；
+    4. `flushModTapPending`：补发 = `handleChordTapRelease`（候选面）→ 不接才 `handleHardwareSymKey`；
+    5. onKeyUp：pending 键抬起（无第二键）→ 补发 + 吞 up；**置于 `dispatchAltLatchUp` 之前**
+       （Alt latch 键的 up 会被那里吞掉）。
   - 涉及文件: `app/src/main/java/org/fcitx/fcitx5/android/input/FcitxInputMethodService.kt`
   - 验证: CI 全绿
   - 结果:
 
+- [~] T4: 单测 + CI 单测腿
+  - 内容: `HardwareModTapTest`（JVM）：`chordBindingForFamily` 纯函数 6 例（本家族/异家族/
+    非和弦/伪修饰键家族隔离/空集/正反）+ `chordModifierFamilyForKeyCode` 映射 6 例；
+    CI workflow 加 ubuntu 腿 `:app:testDebugUnitTest`。
+  - 涉及文件: `app/src/test/java/org/fcitx/fcitx5/android/input/candidates/HardwareModTapTest.kt`、
+    `.github/workflows/pull_request.yml`
+  - 验证: CI 全绿（含新单测步骤）
+  - 结果:
+
 - [ ] T5: [真机] 全量 AC 验收（Titan2 / tt2 预设）
-  - 内容: 按 spec AC1~AC10 逐条真机验证（改配置后强停应用；逐条记录 通过/不通过）：
-    AC1 Sym+字母（开关类）/ AC2 Fn+字母、Alt+字母 / AC3 Sym+O/P 翻页 /
-    AC4 裸点选字手感 + 空格不变 / AC5 Alt 双击锁、Shift 双击/长按锁大写回归 /
-    AC6 长按 2s 再按字母 / AC7 非和弦第二键先选字 / AC8 长按自动重复 /
-    AC9 关开关回退旧行为 / AC10 软键盘抽查。
+  - 内容: 按 spec AC1~AC10 逐条真机验证（改配置后强停应用；逐条记录 通过/不通过）。
+    前置条件：至少存在一个 `Alt+字母` 或 `Shift+字母` 和弦绑定（否则双角色键永不挂起，
+    属设计内的零变更）。
   - 涉及文件: （无代码改动；结果记入 spec 复选框与 AC 报告）
-  - 验证: [真机] AC1~AC10 全部通过（或列出差异项回到 T4 修）
+  - 验证: [真机] AC1~AC10 全部通过（或列出差异项回到 T3 修）
   - 结果:
 
 - [ ] T6: 全量 CI 绿 + 回归 AC 清单核对准备
