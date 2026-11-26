@@ -65,7 +65,10 @@
   - 结果: 代码已推（含单测 + CI 单测腿）。
     基础设施修正（本分支内附带提交，非本特性逻辑）：`android-actions/setup-android@v3` 在
     Node 24 强迁下崩溃（上游 TapFeet 同挂，四平台全挂，非本特性引入），升到 `@v4`（v4.0.4，
-    2026-09 发布）。另：token 纸面推送对 `.github/workflows/` 需 token 的 Workflows 写权限
+    2026-09 发布）；`gradle/actions/setup-gradle@v5` 新增的 wrapper 校验会报
+    `build-logic/gradle/wrapper/gradle-wrapper.jar`（上游遗留的占位文本文件，上游同 blob）
+    为未知 jar，故该步骤设 `validate-wrappers: false`（根 wrapper 才实际参与构建）。
+    另：token 纸面推送对 `.github/workflows/` 需 token 的 Workflows 写权限
     （已开通），故 workflow 改动也走 API 推送，未用 Web UI。
 
 - [ ] T5: [真机] 全量 AC 验收（Titan2 / tt2 预设）

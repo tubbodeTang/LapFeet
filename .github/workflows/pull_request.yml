@@ -59,6 +59,11 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
+        with:
+          # build-logic/ contains a legacy placeholder wrapper jar (upstream
+          # relic, same blob as izilooong/TapFeet) that fails v5's checksum
+          # validation; the root wrapper is the one actually used to build.
+          validate-wrappers: false
 
       - name: Unit tests (ubuntu leg)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
