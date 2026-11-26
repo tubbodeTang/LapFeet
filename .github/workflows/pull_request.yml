@@ -60,6 +60,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
 
+      - name: Unit tests (ubuntu leg)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: |
+          ./gradlew :app:testDebugUnitTest
+
       - name: Build APK (validation)
         run: |
           ./gradlew :app:assembleDebug
