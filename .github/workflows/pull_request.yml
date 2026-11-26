@@ -67,18 +67,30 @@ jobs:
 
       - name: Unit tests (ubuntu leg)
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        shell: bash
         run: |
           if ! ./gradlew :app:testDebugUnitTest > utest.log 2>&1; then
-            tail -n 80 utest.log | while IFS= read -r l; do echo "::error file=utest.log::$l"; done
+            grep -E "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by:|OutOfMemory|> Task.*FAILED" utest.log | tail -n 40 | while IFS= read -r l; do echo "::error file=utest.log::$l"; done
             exit 1
           fi
 
       - name: Build APK (validation)
+        shell: bash
         run: |
           if ! ( ./gradlew :app:assembleDebug && ./gradlew :assembleDebugPlugins ) > build.log 2>&1; then
-            tail -n 80 build.log | while IFS= read -r l; do echo "::error file=build.log::$l"; done
+            grep -E "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by:|OutOfMemory|> Task.*FAILED" build.log | tail -n 40 | while IFS= read -r l; do echo "::error file=build.log::$l"; done
             exit 1
           fi
+
+      - name: Upload debug logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: debuglog-${{ matrix.os }}
+          path: |
+            build.log
+            utest.log
+          if-no-files-found: ignore
 
       - name: Upload app
         uses: actions/upload-artifact@v6
