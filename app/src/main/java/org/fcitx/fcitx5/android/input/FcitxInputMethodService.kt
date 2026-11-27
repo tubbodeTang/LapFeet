@@ -1858,6 +1858,34 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
      * 超过阈值时定时器仍会去替换正文、把键帽符号打出来 —— 表现为「绑了快捷键的字母键，长按会冒符号」。
      */
 
+    // ===== Mod-Tap（ADR-0005）：双角色键（裸按=选候选、与修饰键和=和弦，如 Alt_R=candidate5+altLatch） =====
+    // 候选可见时双角色键按下先挂起（不立即选候选）；用户松手且未按和弦 → onKeyUp 补发选候选；
+    // 按住期间第二键到达（任意键）→ 立即补发选候选，该键自身照旧路径派发（和弦/动作/输入）。
+    // 纯按键事件驱动、无超时参数；挂起门槛不满足则永不挂起 → 行为与旧版逐字节相同（零面变更）。
+    private var modTapPendingEvent: KeyEvent? = null
+
+    /** 挂起门槛：开关开 + 物理键盘模式 + 候选可见 + 双角色裸键 + 该修饰键家族存在撞候选的和弦绑定。 */
+    private fun modTapShouldArm(effectiveEvent: KeyEvent): Boolean {
+        val kp = effectiveEvent.toKeyPress()
+        return AppPrefs.getInstance().hardwareKeyboard.modTapEnabled.getValue() &&
+            !inputDeviceMgr.isVirtualKeyboard &&
+            candidatesView?.isShowingCandidates() == true &&
+            HardwareShortcutResolver.isDualRoleBareKey(kp) &&
+            HardwareShortcutResolver.chordModifierFamilyForKeyCode(kp.keyCode)
+                ?.let { HardwareShortcutResolver.hasChordBindingForModifier(it) } == true
+    }
+
+    /** 补发：把挂起的键按下当裸按重放（候选面优先，候选面不接才走符号窗口），并清挂起状态。 */
+    private fun flushModTapPending() {
+        val event = modTapPendingEvent ?: return
+        modTapPendingEvent = null
+        consumedHardwareCandidateShortcutKeys.remove(event.keyCode)
+        hardwareKeyDispatch.cancelLongPressSymbol(event.keyCode)
+        if (candidatesView?.handleChordTapRelease(event) != true) {
+            inputView?.handleHardwareSymKey(event)
+        }
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         // Typing guard clock: any hardware key (consumed or not) marks the surface stream as
         // "typing in progress" for the window configured by hw.keyboardFlyTextGuardMs — grazes
@@ -1982,6 +2010,21 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
             }
             forceShowSelf()
         }
+        // Mod-Tap 仲裁（ADR-0005）：刻意放在动作快捷键与候选派发**之前** —— 挂起期间第二键到达
+        // 时，先补发挂起键的候选选择，再让第二键走完整原路径（动作/和弦/翻页/输入一个都不漏）；
+        // 未挂起时只读偏好谓词、零副作用。
+        if (event.repeatCount == 0) {
+            when {
+                modTapPendingEvent != null -> flushModTapPending()
+                modTapShouldArm(effectiveEvent) -> {
+                    modTapPendingEvent = effectiveEvent
+                    hardwareKeyDispatch.cancelLongPressSymbol(keyCode)
+                    consumedHardwareCandidateShortcutKeys.add(keyCode)
+                    return true
+                }
+            }
+        }
+
         if (event.repeatCount == 0) {
             // 动作快捷键（开关类 + 文本编辑类）第一优先。刻意放在候选 / 符号 / 翻页判断之前，并且放在
             // `inputDeviceMgr.isVirtualKeyboard` 分支**之外**：
@@ -2060,6 +2103,13 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
 
         // 长按符号 pending 解析 → HardwareKeyDispatch（已长按 fired 则吞掉 up，否则 fall through）。
         if (hardwareKeyDispatch.resolveLongPressSymbolUp(keyCode)) return true
+
+        // Mod-Tap：纯松手（按住期间没有第二键）→ 补发候选选择，吞掉这次 up。
+        // 必须放在 dispatchAltLatchUp **之前**：Alt latch 键的 up 会被那里吞掉，永远走不到后面。
+        if (modTapPendingEvent != null && keyCode == modTapPendingEvent!!.keyCode) {
+            flushModTapPending()
+            return true
+        }
 
         // Long-press Alt → clear the framework's native sticky/locked Alt meta.
         // On the Q25 / some ROMs, holding Alt past a threshold makes the framework enter a native
@@ -2990,6 +3040,8 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
         hardwareKeyDispatch.cancelAllLongPressSymbols()
         // 会话结束：Fn/Sym 按住状态与 tap-hold 挂起都作废，避免跨会话僵死。
         HardwareChord.reset()
+        // Mod-Tap 挂起同样作废（候选面已随会话消失，补发已无意义）。
+        modTapPendingEvent = null
         postFcitxJob {
             focus(false)
         }

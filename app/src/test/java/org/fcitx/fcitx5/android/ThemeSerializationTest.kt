@@ -98,7 +98,8 @@ class ThemeSerializationTest {
             }
         """.trimIndent()
         val (decoded, migrated) = raw.toCustomTheme()
-        Assert.assertEquals("Migration shouldn't happen", false, migrated)
+        // v2.0 themes must be migrated to the current v2.1 schema (candidate colors added)
+        Assert.assertEquals("Migration 2.0 -> 2.1 should happen", true, migrated)
         Assert.assertEquals("Round trip", decoded, decoded.toJson().toCustomTheme().first)
     }
 }

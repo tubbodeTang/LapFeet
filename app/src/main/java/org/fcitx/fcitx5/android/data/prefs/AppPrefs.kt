@@ -583,6 +583,16 @@ class AppPrefs(private val sharedPreferences: SharedPreferences) {
         // "Alt_R" for tt2) is owned by [HardwareKeyProfiles] and written by [ensureInitialized].
         val altLatchKey = string("hw_alt_latch_key", "")
 
+        // Mod-Tap（ADR-0005）：双角色键（裸按=选候选、与修饰键和=和弦，如 Alt_R=candidate5+altLatch）
+        // 在候选可见时按下先挂起、松手补发选候选、按住则等和弦第二键。默认 ON。
+        // 关闭 = 完全回到旧行为（按下立即选候选）。无超时参数：纯按键事件驱动。
+        val modTapEnabled = switch(
+            R.string.hw_mod_tap,
+            "hw_mod_tap_enabled",
+            true,
+            R.string.hw_mod_tap_summary
+        )
+
         // Alt+Delete / Alt+Backspace (physical Alt held, or Alt latched) deletes the whole line
         // via fcitx5's kill-line, instead of deleting a single character. Default OFF so the
         // classic mobile behaviour is preserved; turn ON to re-enable the terminal-style kill-line.

@@ -1,5 +1,10 @@
 # TapFeet IME - Code Wiki
 
+> **阅读导航**（2026-07 更新）：
+> - 本文档讲"架构是什么"；运行时链路（按键怎么走到上屏、模式状态机、高危区域）看 **`docs/CODE_MAP.md`**
+> - 功能演进脉络与历史 bug 类型考古看 **`docs/HISTORY.md`**
+> - SDD 研发流程与验证基线看 **`AGENTS.md`（SDD Workflow 节）与 `decisions/`**
+
 ## 1. 项目概述
 
 ### 1.1 项目简介
@@ -116,7 +121,7 @@
 
 #### 3.1.1 Fcitx 类
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/Fcitx.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/core/Fcitx.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/Fcitx.kt](app/src/main/java/org/fcitx/fcitx5/android/core/Fcitx.kt)
 
 `Fcitx` 是项目的核心类，封装了所有与 Fcitx5 引擎交互的 JNI 调用。它实现了 `FcitxAPI` 接口，并管理 Fcitx5 的生命周期。
 
@@ -160,7 +165,7 @@ private fun handleFcitxEvent(event: FcitxEvent<*>) {
 
 #### 3.1.2 FcitxAPI 接口
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/FcitxAPI.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/core/FcitxAPI.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/FcitxAPI.kt](app/src/main/java/org/fcitx/fcitx5/android/core/FcitxAPI.kt)
 
 定义了 Fcitx5 的 API 接口，所有方法都是挂起函数，确保在 Fcitx 线程中执行。
 
@@ -175,7 +180,7 @@ private fun handleFcitxEvent(event: FcitxEvent<*>) {
 
 #### 3.1.3 FcitxDaemon
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/daemon/FcitxDaemon.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/daemon/FcitxDaemon.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/daemon/FcitxDaemon.kt](app/src/main/java/org/fcitx/fcitx5/android/daemon/FcitxDaemon.kt)
 
 管理 Fcitx 单例的连接和生命周期，采用客户端-服务器模式。
 
@@ -199,7 +204,7 @@ fun connect(name: String): FcitxConnection = lock.withLock {
 
 #### 3.1.4 FcitxDispatcher
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/FcitxDispatcher.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/core/FcitxDispatcher.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/FcitxDispatcher.kt](app/src/main/java/org/fcitx/fcitx5/android/core/FcitxDispatcher.kt)
 
 Fcitx5 的主线程调度器，负责驱动 Fcitx5 的事件循环。
 
@@ -211,7 +216,7 @@ Fcitx5 的主线程调度器，负责驱动 Fcitx5 的事件循环。
 
 #### 3.1.5 FcitxLifecycle
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/FcitxLifecycle.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/core/FcitxLifecycle.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/FcitxLifecycle.kt](app/src/main/java/org/fcitx/fcitx5/android/core/FcitxLifecycle.kt)
 
 管理 Fcitx5 的生命周期状态。
 
@@ -236,7 +241,7 @@ STOPPED → STARTING → READY → STOPPING → STOPPED
 
 #### 3.2.1 FcitxEvent 类型
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/FcitxEvent.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/core/FcitxEvent.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/FcitxEvent.kt](app/src/main/java/org/fcitx/fcitx5/android/core/FcitxEvent.kt)
 
 定义了所有从 Fcitx5 引擎发出的事件类型：
 
@@ -258,7 +263,7 @@ STOPPED → STARTING → READY → STOPPING → STOPPED
 
 #### 3.3.1 InputWindowManager
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/input/wm/InputWindowManager.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/input/wm/InputWindowManager.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/input/wm/InputWindowManager.kt](app/src/main/java/org/fcitx/fcitx5/android/input/wm/InputWindowManager.kt)
 
 管理输入窗口的切换和生命周期。
 
@@ -279,7 +284,7 @@ STOPPED → STARTING → READY → STOPPING → STOPPED
 
 #### 3.4.1 DataManager
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/data/DataManager.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/core/data/DataManager.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/core/data/DataManager.kt](app/src/main/java/org/fcitx/fcitx5/android/core/data/DataManager.kt)
 
 管理应用的文件系统层次结构，负责同步主应用和插件的数据。
 
@@ -297,7 +302,7 @@ STOPPED → STARTING → READY → STOPPING → STOPPED
 
 #### 3.4.2 ThemeManager
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemeManager.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemeManager.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemeManager.kt](app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemeManager.kt)
 
 管理输入法主题，支持内置主题、自定义主题和 Android 12+ 动态取色（Monet）。
 
@@ -313,9 +318,29 @@ STOPPED → STARTING → READY → STOPPING → STOPPED
 
 #### 3.5.1 LifecycleInputMethodService
 
-**文件**: [app/src/main/java/org/fcitx/fcitx5/android/input/LifecycleInputMethodService.kt](file:///d:/tapfeet/tapfeet/app/src/main/java/org/fcitx/fcitx5/android/input/LifecycleInputMethodService.kt)
+**文件**: [app/src/main/java/org/fcitx/fcitx5/android/input/LifecycleInputMethodService.kt](app/src/main/java/org/fcitx/fcitx5/android/input/LifecycleInputMethodService.kt)
 
 Android 输入法服务的基类，集成了 Android Lifecycle 框架。
+
+### 3.6 物理键盘子系统（本 fork 的核心增值，v1.0.2 起）
+
+> 运行细节与高危区域见 `docs/CODE_MAP.md` 第 2/4/5 节，此处仅给类级索引。
+
+| 类 | 路径（`app/src/main/java/org/fcitx/fcitx5/android/` 下） | 职责 |
+|---|---|---|
+| `FcitxInputMethodService` | `input/` | 3085 行调度中心：onKeyDown 13 步派发链、Alt/Caps latch、引擎事件回流 |
+| `InputDeviceManager` | `input/` | 虚拟/物理模式状态机（`isVirtualKeyboard` 唯一写入点）+ `reapplyMode` 自愈链 |
+| `HardwareKeyProfiles` | `data/prefs/` | 五套机型预设（Q25/Titan2/Elite/Elite改键/Passport），整批重放语义 |
+| `HardwareShortcutResolver` | `input/candidates/` | 快捷键字符串→解析规则（Special/Ref/Chord），带缓存 |
+| `HardwareKeyMatcher` | `input/candidates/` | 按键匹配（真实修饰键按住态、精确/宽泛快捷键按候选数切换） |
+| `HardwareChord` | `input/`（object） | Fn/Sym 和弦前缀 + tap-hold 挂起（修饰键兼功能键的消解） |
+| `FloatingCandidates*` / `PagedCandidatesUi` | `input/candidates/floating/` | 悬浮候选窗（物理模式主面）、分页 5/3/1 自适应 |
+| `KeyDefPreset` / `CustomKeyboard` | `input/keyboard/` | 软键盘键帽定义与自定义键盘（Passport 常驻符号排） |
+| `KeyboardFlyTextSelector` | `input/swipe/` | 键盘飞字（触摸手势选字/翻页/移光标）+ 防误触 guard |
+| `VoiceInputController` / `VoiceModelManager` | `input/voice/`、`data/voice/` | 离线语音输入（sherpa-onnx，模型按需下载） |
+| `CommitEffectsOverlay` | `input/effects/` | 选字特效（花火/泡影） |
+| `UpdateChecker` / `UpdateManager` | `update/` | 在线升级（仓库根 `update.json` 为升级源，发版需同步） |
+| `AppPrefs` | `data/prefs/` | 960 行巨型偏好中心，`ManagedPreference` 懒加载体系 |
 
 ---
 
@@ -323,7 +348,7 @@ Android 输入法服务的基类，集成了 Android Lifecycle 框架。
 
 ### 4.1 native-lib.cpp
 
-**文件**: [app/src/main/cpp/native-lib.cpp](file:///d:/tapfeet/tapfeet/app/src/main/cpp/native-lib.cpp)
+**文件**: [app/src/main/cpp/native-lib.cpp](app/src/main/cpp/native-lib.cpp)
 
 这是项目的核心 JNI 文件，实现了所有从 Kotlin 到 C++ 的桥接。
 
@@ -491,18 +516,22 @@ plugin:sayura
 
 ### 7.1 环境要求
 
-- **Android SDK Platform & Build-Tools**: 35
-- **Android NDK (Side by side)**: 25
-- **CMake**: 3.22.1
+> ⚠️ 以 `build-logic/convention/src/main/kotlin/Versions.kt` 为唯一事实源（本节 2026-07 核对）。
+
+- **Android SDK Platform**: 36（compileSdk=36）
+- **CMake**: 3.31.6（CI 安装版本）
+- **NDK**: 28.0.13004108（flake.nix 声明）
 - **extra-cmake-modules**: KDE 构建依赖
 - **GNU Gettext**: >= 0.20（需要 `msgfmt` 命令）
+
+> **本地构建说明**：当前开发机（Windows）未安装上述工具链，**本地不构建**。验证基线 = GitHub Actions PR CI（见 `AGENTS.md` 验证基线与 `decisions/0001`）。
 
 ### 7.2 构建步骤
 
 ```shell
 # 克隆仓库
-git clone https://github.com/izilooong/fcitx5-Q25.git
-cd fcitx5-Q25
+git clone https://github.com/tubbodeTang/LapFeet.git
+cd LapFeet
 
 # 初始化子模块
 git submodule update --init --recursive

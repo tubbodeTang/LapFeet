@@ -1,5 +1,9 @@
 name: Pull Request
 
+permissions:
+  contents: read
+  issues: write
+
 on:
   pull_request:
     types:
@@ -19,6 +23,8 @@ jobs:
           - macos-15-intel
           - macos-26
           - windows-2025
+    env:
+      KMEM: ${{ (matrix.os == 'ubuntu-24.04') && '-Xmx4g -XX:+UseG1GC' || '-Xmx6g -XX:+UseG1GC' }}
     steps:
       - name: Fetch source code
         uses: actions/checkout@v6
@@ -33,7 +39,7 @@ jobs:
           java-version: "17"
 
       - name: Setup Android environment
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android NDK
         run: |
@@ -59,11 +65,69 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
+        with:
+          # build-logic/ contains a legacy placeholder wrapper jar (upstream
+          # relic, same blob as izilooong/TapFeet) that fails v5's checksum
+          # validation; the root wrapper is the one actually used to build.
+          validate-wrappers: false
+
+      - name: Unit tests (ubuntu leg)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        shell: bash
+        run: |
+          if ! ./gradlew :app:testDebugUnitTest -Dkotlin.daemon.jvmargs="$KMEM" -Dorg.gradle.jvmargs="$KMEM" > utest.log 2>&1; then
+            echo "error: [DIAG] $(grep -iE 'Kotlin compiler daemon|Starting a Gradle Kotlin|in-process' utest.log | head -n 8 | tr '\n' ' | ' | cut -c1-800)"
+            grep -iE "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by:|OutOfMemory|FAILED|failing tests|See the report|AssertionError|expected:|but was:|Exception" utest.log | tail -n 50 | while IFS= read -r l; do echo "::error file=utest.log::$l"; done
+            exit 1
+          fi
 
       - name: Build APK (validation)
+        shell: bash
         run: |
-          ./gradlew :app:assembleDebug
-          ./gradlew :assembleDebugPlugins
+          if ! ( ./gradlew :app:assembleDebug -Dkotlin.daemon.jvmargs="$KMEM" -Dorg.gradle.jvmargs="$KMEM" && ./gradlew :assembleDebugPlugins -Dkotlin.daemon.jvmargs="$KMEM" -Dorg.gradle.jvmargs="$KMEM" ) > build.log 2>&1; then
+            echo "error: [DIAG] $(grep -iE 'Kotlin compiler daemon|Starting a Gradle Kotlin|in-process' build.log | head -n 8 | tr '\n' ' | ' | cut -c1-800)"
+            grep -iE "^e: |error:|FAILURE:|What went wrong|Execution failed|Caused by:|OutOfMemory|> Task.*FAILED|Kotlin compiler daemon|in-process" build.log | tail -n 40 | while IFS= read -r l; do echo "::error file=build.log::$l"; done
+            exit 1
+          fi
+
+      - name: Upload debug logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: debuglog-${{ matrix.os }}
+          path: |
+            build.log
+            utest.log
+          if-no-files-found: ignore
+
+      - name: Upload test results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: testresults-${{ matrix.os }}
+          path: app/build/reports/tests
+          if-no-files-found: ignore
+
+      - name: Post failure log tail to PR (debug)
+        if: failure()
+        shell: bash
+        run: |
+          LOG=""
+          for f in utest.log build.log; do
+            if [ -s "$f" ]; then LOG="$f"; break; fi
+          done
+          if [ -n "$LOG" ]; then
+            {
+              echo "CI failure log tail: os=${{ matrix.os }} file=$LOG"
+              echo '=== daemon/heap lines ==='
+              grep -iE "kotlin compiler daemon|in-process|jvmargs|xmx|Starting a Gradle" "$LOG" | head -n 20 | cut -c1-300
+              echo '=== tail ==='
+              echo '```'
+              tail -n 120 "$LOG" | cut -c1-200
+              echo '```'
+            } > /tmp/ci_tail.md
+            gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" -F body_file=/tmp/ci_tail.md || true
+          fi
 
       - name: Upload app
         uses: actions/upload-artifact@v6
