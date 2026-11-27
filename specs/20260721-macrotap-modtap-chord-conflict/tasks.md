@@ -24,7 +24,7 @@
 >    plan §2.3 的"和弦第二键/非和弦"两分支殊途同归，合并。
 > 5. CI 增加 ubuntu 腿 `:app:testDebugUnitTest`（原先 CI 不跑单测，测试文件连编译都无人验证）。
 
-- [~] T1: Resolver 新增双角色判定纯函数
+- [x] T1: Resolver 新增双角色判定纯函数
   - 内容: `HardwareShortcutResolver` 新增：`matchesBareCandidateKey(kp)`（candidate1-5 纯键绑定命中）、
     `isLockTriggerKey(kp)`（altLatchKey 配置键 ∪ Shift_L/R）、`isDualRoleBareKey(kp)`（两者交集）、
     `chordModifierFamilyForKeyCode(keyCode)`（物理修饰键→和弦家族名）、
@@ -32,17 +32,17 @@
     （该家族是否存在和弦绑定，JVM 可测）。
   - 涉及文件: `app/src/main/java/org/fcitx/fcitx5/android/input/candidates/HardwareShortcutResolver.kt`
   - 验证: CI 全绿（4 平台矩阵）
-  - 结果:
+  - 结果: 完成。CI run 5daa6668 四平台全绿（ubuntu-24.04 / macos-15-intel / macos-26 / windows-2025）。
 
-- [~] T2: 设置项「双角色键 Mod-Tap」
+- [x] T2: 设置项「双角色键 Mod-Tap」
   - 内容: `AppPrefs.HardwareKeyboard` 加 `modTapEnabled`（托管 `switch()`，默认 true，
     自动注册到「物理键盘」页，无需改 Fragment）；strings.xml（en + zh-rCN）加标题+摘要。
   - 涉及文件: `app/src/main/java/org/fcitx/fcitx5/android/data/prefs/AppPrefs.kt`、
     `app/src/main/res/values/strings.xml`、`app/src/main/res/values-zh-rCN/strings.xml`
   - 验证: CI 全绿 + [真机] 「设置→物理键盘」能看到新开关、默认勾选、可切换
-  - 结果:
+  - 结果: 代码完成（CI 绿）；真机可见性/可切换性并入 T5 验收清单核对。
 
-- [~] T3: 挂起-补发主逻辑（Service）
+- [x] T3: 挂起-补发主逻辑（Service）
   - 内容: `FcitxInputMethodService`：
     1. `modTapPendingEvent: KeyEvent?` 状态 + `onFinishInput` 清理（与 `HardwareChord.reset()` 同点）；
     2. `modTapShouldArm`（五条件门槛）；
@@ -53,9 +53,9 @@
        （Alt latch 键的 up 会被那里吞掉）。
   - 涉及文件: `app/src/main/java/org/fcitx/fcitx5/android/input/FcitxInputMethodService.kt`
   - 验证: CI 全绿
-  - 结果:
+  - 结果: 完成。CI run 5daa6668 四平台全绿；运行时行为待 T5 真机验收。
 
-- [~] T4: 单测 + CI 单测腿
+- [x] T4: 单测 + CI 单测腿
   - 内容: `HardwareModTapTest`（JVM）：`chordBindingForFamily` 纯函数 6 例（本家族/异家族/
     非和弦/伪修饰键家族隔离/空集/正反）+ `chordModifierFamilyForKeyCode` 映射 6 例；
     CI workflow 加 ubuntu 腿 `:app:testDebugUnitTest`。
@@ -76,6 +76,16 @@
     标注能经 API 读到）。
     另：token 纸面推送对 `.github/workflows/` 需 token 的 Workflows 写权限
     （已开通），故 workflow 改动也走 API 推送，未用 Web UI。
+    另（最终 3 轮 CI 基础设施修正，均非本特性逻辑）：
+    ① 四平台 `:app:compileDebugKotlin` OOM（GC overhead limit exceeded）：Gradle 在 CI 上
+       默认给 Kotlin 编译的堆不够且 ParallelGC 在堆紧张时报 GC overhead；workflow 加
+       `-Dkotlin.daemon.jvmargs`/`-Dorg.gradle.jvmargs` = 非 ubuntu `-Xmx6g`、ubuntu `-Xmx4g`，
+       均加 `-XX:+UseG1GC`（按 matrix.os 分档，ubuntu 7GB 内存留余量）。
+    ② 新单测腿首跑暴露仓库既有失败用例 `ThemeSerializationTest.version2`（历史遗留：
+       当前主题 schema 已升到 2.1，该用例仍断言 2.0 不需迁移；此前无 CI 单测腿、本地
+       无构建环境，从未被执行过）：改为断言 2.0→2.1 应迁移。25/25 全过。
+    ③ 细粒度 token 拉不到 Actions 原始日志（/logs 403 签名），失败诊断改为 `::error`
+       标注（含 daemon/堆 诊断行）+ 上传 debuglog/testresults artifact。
 
 - [ ] T5: [真机] 全量 AC 验收（Titan2 / tt2 预设）
   - 内容: 按 spec AC1~AC10 逐条真机验证（改配置后强停应用；逐条记录 通过/不通过）。
